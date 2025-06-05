@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 run_embed() {
     cat << EOF > embedEtcd.yaml
 listen-client-urls: http://0.0.0.0:2379
@@ -39,17 +40,20 @@ EOF
         echo "user.yaml file does not exist. Please try to create it in the current directory."
         exit 1
     fi
-    
-    sudo docker run -d \
+
+    mkdir -p $(pwd)/volumes/milvus
+
+
+    sudo podman run -d \
         --name milvus-standalone \
-        --security-opt seccomp:unconfined \
+        --security-opt seccomp=unconfined \
         -e ETCD_USE_EMBED=true \
         -e ETCD_DATA_DIR=/var/lib/milvus/etcd \
         -e ETCD_CONFIG_PATH=/milvus/configs/embedEtcd.yaml \
         -e COMMON_STORAGETYPE=local \
-        -v $(pwd)/volumes/milvus:/var/lib/milvus \
-        -v $(pwd)/embedEtcd.yaml:/milvus/configs/embedEtcd.yaml \
-        -v $(pwd)/user.yaml:/milvus/configs/user.yaml \
+        -v $(pwd)/volumes/milvus:/var/lib/milvus:Z \
+        -v $(pwd)/embedEtcd.yaml:/milvus/configs/embedEtcd.yaml:Z \
+        -v $(pwd)/user.yaml:/milvus/configs/user.yaml:Z \
         -p 19530:19530 \
         -p 9091:9091 \
         -p 2379:2379 \
@@ -58,7 +62,7 @@ EOF
         --health-start-period=90s \
         --health-timeout=20s \
         --health-retries=3 \
-        milvusdb/milvus:v2.5.12 \
+        docker.io/milvusdb/milvus:v2.5.12 \
         milvus run standalone  1> /dev/null
 }
 
@@ -66,8 +70,8 @@ wait_for_milvus_running() {
     echo "Wait for Milvus Starting..."
     while true
     do
-        res=`sudo docker ps|grep milvus-standalone|grep healthy|wc -l`
-        if [ $res -eq 1 ]
+        res=$(sudo podman ps | grep milvus-standalone | grep healthy | wc -l)
+        if [ "$res" -eq 1 ]
         then
             echo "Start successfully."
             echo "To change the default Milvus configuration, add your settings to the user.yaml file and then restart the service."
@@ -78,17 +82,17 @@ wait_for_milvus_running() {
 }
 
 start() {
-    res=`sudo docker ps|grep milvus-standalone|grep healthy|wc -l`
-    if [ $res -eq 1 ]
+    res=$(sudo podman ps | grep milvus-standalone | grep healthy | wc -l)
+    if [ "$res" -eq 1 ]
     then
         echo "Milvus is running."
         exit 0
     fi
 
-    res=`sudo docker ps -a|grep milvus-standalone|wc -l`
-    if [ $res -eq 1 ]
+    res=$(sudo podman ps -a | grep milvus-standalone | wc -l)
+    if [ "$res" -eq 1 ]
     then
-        sudo docker start milvus-standalone 1> /dev/null
+        sudo podman start milvus-standalone 1> /dev/null
     else
         run_embed
     fi
@@ -103,7 +107,7 @@ start() {
 }
 
 stop() {
-    sudo docker stop milvus-standalone 1> /dev/null
+    sudo podman stop milvus-standalone 1> /dev/null
 
     if [ $? -ne 0 ]
     then
@@ -111,17 +115,16 @@ stop() {
         exit 1
     fi
     echo "Stop successfully."
-
 }
 
 delete_container() {
-    res=`sudo docker ps|grep milvus-standalone|wc -l`
-    if [ $res -eq 1 ]
+    res=$(sudo podman ps | grep milvus-standalone | wc -l)
+    if [ "$res" -eq 1 ]
     then
         echo "Please stop Milvus service before delete."
         exit 1
     fi
-    sudo docker rm milvus-standalone 1> /dev/null
+    sudo podman rm milvus-standalone 1> /dev/null
     if [ $? -ne 0 ]
     then
         echo "Delete milvus container failed."
@@ -140,9 +143,9 @@ delete() {
 
 upgrade() {
     read -p "Please confirm if you'd like to proceed with the upgrade. The default will be to the latest version. Confirm with 'y' for yes or 'n' for no. > " check
-    if [ "$check" == "y" ] ||[ "$check" == "Y" ];then
-        res=`sudo docker ps -a|grep milvus-standalone|wc -l`
-        if [ $res -eq 1 ]
+    if [ "$check" == "y" ] || [ "$check" == "Y" ]; then
+        res=$(sudo podman ps -a | grep milvus-standalone | wc -l)
+        if [ "$res" -eq 1 ]
         then
             stop
             delete_container
