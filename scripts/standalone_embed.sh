@@ -151,7 +151,7 @@ upgrade() {
             delete_container
         fi
 
-        curl -sfL https://raw.githubusercontent.com/milvus-io/milvus/master/scripts/standalone_embed.sh -o standalone_embed_latest.sh && \
+        curl -sfL https://raw.githubusercontent.com/lungile-iso/milvus/blob/master/scripts/standalone_embed.sh -o standalone_embed_latest.sh && \
         bash standalone_embed_latest.sh start 1> /dev/null && \
         echo "Upgrade successfully."
     else
